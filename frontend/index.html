@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FC Assist - FieldClimate Chatbot</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Auth Modal -->
+        <div id="authModal" class="modal modal-active">
+            <div class="modal-content">
+                <h1 class="modal-title">FC Assist</h1>
+                <p class="modal-subtitle">Data Chatbot</p>
+
+                <div class="auth-tabs">
+                    <button class="tab-button active" data-tab="hmac">HMAC Keys</button>
+                    <button class="tab-button" data-tab="token">Auth Token</button>
+                </div>
+
+                <!-- HMAC Tab -->
+                <div id="hmac-tab" class="tab-content active">
+                    <form id="hmacForm">
+                        <div class="form-group">
+                            <label for="publicKey">Public Key</label>
+                            <div class="password-input-wrapper">
+                                <input 
+                                    type="password" 
+                                    id="publicKey" 
+                                    placeholder="Enter your public key"
+                                    autocomplete="off"
+                                    required
+                                >
+                                <button type="button" class="eye-toggle" data-input="publicKey" title="Toggle visibility">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="privateKey">Private Key</label>
+                            <div class="password-input-wrapper">
+                                <input 
+                                    type="password" 
+                                    id="privateKey" 
+                                    placeholder="Enter your private key"
+                                    autocomplete="off"
+                                    required
+                                >
+                                <button type="button" class="eye-toggle" data-input="privateKey" title="Toggle visibility">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Login with HMAC</button>
+                    </form>
+                </div>
+
+                <!-- Token Tab -->
+                <div id="token-tab" class="tab-content">
+                    <form id="tokenForm">
+                        <div class="form-group">
+                            <label for="authToken">Auth Token</label>
+                            <div class="password-input-wrapper">
+                                <input 
+                                    type="password" 
+                                    id="authToken" 
+                                    placeholder="Enter your auth token"
+                                    autocomplete="off"
+                                    required
+                                >
+                                <button type="button" class="eye-toggle" data-input="authToken" title="Toggle visibility">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Login with Token</button>
+                    </form>
+                </div>
+
+                <div id="authError" class="error-message" style="display: none;"></div>
+                <div id="authLoading" class="loading" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Main Chat Layout -->
+        <div id="mainLayout" class="main-layout" style="display: none;">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-content">
+                    <h1 class="header-title">FC Assist</h1>
+                    <div class="header-right">
+                        <span id="sessionStatus" class="session-status">Connected</span>
+                        <button id="logoutBtn" class="btn btn-outline">Logout</button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Two-Column Layout -->
+            <div class="layout-container">
+                <!-- LEFT: Results Panel -->
+                <div class="results-panel">
+                    <!-- Chat Messages (Results) -->
+                    <div id="chatMessages" class="chat-messages">
+                        <div class="bot-message">
+                            <p>Hi! I'm FC Assist. You can ask me about sensor data from your FieldClimate devices.</p>
+                            <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
+                                Example: "Show monthly battery levels for this year" or "Get daily precipitation data for this week"
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT: Query Panel -->
+                <div class="query-panel">
+                    <!-- Device Selector -->
+                    <div class="device-selector-right">
+                        <label for="deviceSelect">Select Device:</label>
+                        <select id="deviceSelect">
+                            <option value="">Choose a device...</option>
+                        </select>
+                    </div>
+
+                    <!-- Quick Query Suggestions -->
+                    <div class="quick-queries-right">
+                        <p class="quick-queries-label">Quick queries:</p>
+                        <div class="quick-queries-buttons">
+                            <button class="quick-query-btn" data-query="Which sensors are available?">📊 Available Sensors</button>
+                            <button class="quick-query-btn" data-query="Show me air temperature for this week">🌡️ Temperature Data</button>
+                            <button class="quick-query-btn" data-query="What licenses do I have?">📜 My Licenses</button>
+                            <button class="quick-query-btn" data-query="Get precipitation data for this month">🌧️ Precipitation</button>
+                            <button class="quick-query-btn" data-query="Show all sensor data hourly">📈 All Sensors (Hourly)</button>
+                            <button class="quick-query-btn" data-query="Get daily summary for the last 7 days">📅 Last 7 Days</button>
+                        </div>
+                    </div>
+
+                    <!-- Chat Input -->
+                    <div class="chat-input-area-right">
+                        <textarea 
+                            id="userInput" 
+                            class="chat-input" 
+                            placeholder="Type your query or ask about sensor data..."
+                            autocomplete="off"
+                            rows="3"
+                        ></textarea>
+                        <button id="sendBtn" class="btn btn-primary btn-send">Send</button>
+                    </div>
+
+                    <!-- Error Display (within chat) -->
+                    <div id="inputError" class="error-message-right" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/chat.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
