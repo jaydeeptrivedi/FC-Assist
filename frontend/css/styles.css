@@ -670,6 +670,29 @@ body {
     font-weight: 400;
 }
 
+.bot-message ul {
+    background-color: #f0f0f0;
+    color: var(--text-primary);
+    padding: 12px 16px 12px 32px;
+    border-radius: 18px 18px 18px 4px;
+    max-width: 90%;
+    margin: 8px 0 0 0;
+    font-size: 14px;
+    line-height: 1.6;
+    list-style-type: none;
+}
+
+.bot-message li {
+    margin-bottom: 6px;
+}
+
+.bot-message li:before {
+    content: '• ';
+    color: var(--brand-color);
+    font-weight: 600;
+    margin-right: 6px;
+}
+
 .message-time {
     font-size: 11px;
     color: var(--text-light);
