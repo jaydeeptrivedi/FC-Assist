@@ -742,10 +742,12 @@ body {
     font-family: inherit;
     transition: all 0.3s ease;
     resize: none;
-    height: 85px;
+    min-height: 44px;
+    max-height: 200px;
     background-color: white;
     line-height: 1.4;
     box-sizing: border-box;
+    overflow-y: auto;
 }
 
 .chat-input:focus {
@@ -859,20 +861,25 @@ body {
 
     .layout-container {
         grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
         gap: 0;
     }
 
     .results-panel {
         border-right: none;
         border-bottom: 1px solid #e5e5e5;
-        min-height: 40%;
-        max-height: 50%;
+        min-height: 0;
+        flex: 1;
+        overflow: hidden;
     }
 
     .query-panel {
         width: 100%;
         border-left: none;
         border-top: 1px solid #e5e5e5;
+        flex-shrink: 0;
+        max-height: 50vh;
+        overflow-y: auto;
     }
 
     .chat-messages {
