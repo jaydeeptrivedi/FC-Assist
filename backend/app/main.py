@@ -418,6 +418,16 @@ async def process_query(request: ChatRequest):
             licenses_data = client.get_device_licenses(device_for_license)
             
             licenses_table_data = _format_licenses(licenses_data)
+            
+            # Check if licenses exist
+            if not licenses_table_data.get('tables') or len(licenses_table_data.get('tables', [])) == 0:
+                bot_msg = f"❌ Licenses don't exist for this device ({device_for_license})"
+                return ChatResponse(
+                    session_id=request.session_id,
+                    bot_message=bot_msg,
+                    query_result=None,
+                )
+            
             bot_msg = f"📋 License information for device {device_for_license}"
             
             return ChatResponse(
@@ -426,9 +436,9 @@ async def process_query(request: ChatRequest):
                 query_result=QueryResult(
                     formatted_text=bot_msg,
                     query_params={},
-                    table_data=licenses_table_data if licenses_table_data.get('tables') else None,
+                    table_data=licenses_table_data,
                     licenses_data=licenses_data
-                ) if (licenses_table_data.get('tables') or licenses_data) else None,
+                ),
             )
         
         # Handle sensor list query (user asking "what sensors are available")
@@ -576,10 +586,24 @@ async def process_query(request: ChatRequest):
                     filtered[sensor_name] = parsed_sensors[sensor_name]
                 else:
                     # Try case-insensitive match
+                    matched = False
                     for api_sensor, data in parsed_sensors.items():
+                        # 1. Exact case-insensitive match
                         if api_sensor.lower() == sensor_name.lower():
                             filtered[api_sensor] = data
+                            matched = True
                             break
+                        # 2. Substring match (if sensor_name is contained in api_sensor)
+                        elif sensor_name.lower() in api_sensor.lower():
+                            filtered[api_sensor] = data
+                            matched = True
+                            break
+                        # 3. Keyword match (check if key words match)
+                        elif any(keyword in api_sensor.lower() for keyword in sensor_name.lower().split()):
+                            if not matched or 'temperature' in sensor_name.lower():  # Prioritize temperature matches
+                                filtered[api_sensor] = data
+                                matched = True
+                                break
             parsed_sensors = filtered
         
         if not parsed_sensors:

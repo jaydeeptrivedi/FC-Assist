@@ -124,7 +124,7 @@ class IntentParser:
         return None
     
     def _extract_sensors(self, message: str) -> List[str]:
-        """Extract sensor names from message."""
+        """Extract sensor names from message - returns ALL matching sensors."""
         msg_lower = message.lower()
         sensors = []
         
@@ -137,29 +137,49 @@ class IntentParser:
         # If no exact matches, try fuzzy matching for common keywords
         if not sensors:
             keywords = {
-                'temp': 'Air temperature',
-                'temperature': 'Air temperature',
-                'air': 'Air temperature',
-                'humidity': 'Relative Humidity',
-                'rh': 'Relative Humidity',
-                'rain': 'Precipitation',
-                'precip': 'Precipitation',
-                'precipitation': 'Precipitation',
-                'solar': 'Solar Panel',
-                'panel': 'Solar Panel',
-                'battery': 'Battery',
-                'leaf': 'Leaf Wetness',
-                'wetness': 'Leaf Wetness',
-                'frost': 'Frost Monitoring',
-                'wind': 'Wind Speed',
-                'gust': 'Wind Gust',
+                'air': 'air',  # Match all sensors containing 'air'
+                'temperature': 'temperature',
+                'temp': 'temperature',
+                'humidity': 'humidity',
+                'rh': 'humidity',
+                'rain': 'precipitation',
+                'precip': 'precipitation',
+                'precipitation': 'precipitation',
+                'solar': 'solar',
+                'panel': 'solar',
+                'battery': 'battery',
+                'leaf': 'wetness',
+                'wetness': 'wetness',
+                'frost': 'frost',
+                'wind': 'wind',
+                'gust': 'wind',
             }
             
-            # Try to match keywords in order of specificity
-            for keyword, sensor_name in keywords.items():
-                if keyword in msg_lower and sensor_name in self.available_sensors:
-                    sensors.append(sensor_name)
+            # Find the first matching keyword
+            matched_keyword = None
+            for keyword, match_term in keywords.items():
+                if keyword in msg_lower:
+                    matched_keyword = match_term
                     break
+            
+            # If a keyword matched, find ALL available sensors containing that keyword
+            if matched_keyword:
+                for available_sensor in self.available_sensors:
+                    if matched_keyword.lower() in available_sensor.lower():
+                        sensors.append(available_sensor)
+                
+                # If we found multiple sensors matching the keyword, return them all
+                if sensors:
+                    return sensors
+            
+            # Fallback: broader substring matching for common keywords
+            for keyword in ['temperature', 'humidity', 'rain', 'wind', 'battery', 'solar', 'pressure']:
+                if keyword in msg_lower:
+                    for available_sensor in self.available_sensors:
+                        if keyword in available_sensor.lower():
+                            sensors.append(available_sensor)
+                    if sensors:
+                        break
         
         return sensors
     
