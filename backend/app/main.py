@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import json
 import sys
+import os
 import traceback
 from typing import Optional, Dict, Any
 
@@ -93,6 +94,42 @@ async def verify_credentials(request: AuthCredentials):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=error_msg
             )
+
+
+@app.get("/api/config/hmac-keys")
+async def get_hmac_keys_from_env():
+    """
+    Get HMAC keys from environment variables if available.
+    This allows frontend to auto-populate credentials from environment.
+    
+    Returns:
+        Dict with public_key and private_key if available in environment
+    
+    Raises:
+        HTTPException 404 if keys are not configured in environment
+    """
+    try:
+        public_key = os.getenv('FC_PUBLIC_KEY')
+        private_key = os.getenv('FC_PRIVATE_KEY')
+        
+        if not public_key or not private_key:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="HMAC keys not configured in environment"
+            )
+        
+        return {
+            "public_key": public_key,
+            "private_key": private_key
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving HMAC keys: {str(e)}"
+        )
 
 
 @app.get("/api/devices")

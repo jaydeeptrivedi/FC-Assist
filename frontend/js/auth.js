@@ -13,7 +13,7 @@ class AuthManager {
         this.setupTabSwitching();
         this.setupFormSubmission();
         this.setupEyeToggle();  // Setup password visibility toggles
-        this.preloadHMACKeys();  // Preload saved HMAC keys if available
+        this.preloadHMACKeys();  // Preload HMAC keys from environment variables
         
         // Check if already authenticated
         if (SessionStorage.isAuthenticated()) {
@@ -77,26 +77,51 @@ class AuthManager {
         });
     }
     
-    // Preload HMAC keys from localStorage if available
-    preloadHMACKeys() {
-        const saved = this.getStoredHMACKeys();
-        
-        if (saved && saved.public_key && saved.private_key) {
-            const publicKeyInput = document.getElementById('publicKey');
-            const privateKeyInput = document.getElementById('privateKey');
+    // Preload HMAC keys from environment variables if available
+    async preloadHMACKeys() {
+        try {
+            const envKeys = await this.loadHMACKeysFromEnv();
             
-            if (publicKeyInput && privateKeyInput) {
-                publicKeyInput.value = saved.public_key;
-                privateKeyInput.value = saved.private_key;
+            if (envKeys && envKeys.public_key && envKeys.private_key) {
+                const publicKeyInput = document.getElementById('publicKey');
+                const privateKeyInput = document.getElementById('privateKey');
                 
-                // Show indicator that keys were preloaded
-                this.showKeyPreloadedIndicator();
+                if (publicKeyInput && privateKeyInput) {
+                    publicKeyInput.value = envKeys.public_key;
+                    privateKeyInput.value = envKeys.private_key;
+                    
+                    // Show indicator that keys were preloaded from environment
+                    this.showKeyPreloadedIndicator('environment');
+                }
             }
+        } catch (error) {
+            // No env keys available or error occurred, continue without preloading
+            console.log('No environment HMAC keys available');
         }
     }
     
+    // Load HMAC keys from backend environment variables
+    async loadHMACKeysFromEnv() {
+        try {
+            const response = await apiRequest('/config/hmac-keys', {
+                method: 'GET'
+            });
+            
+            if (response && response.public_key && response.private_key) {
+                return {
+                    public_key: response.public_key,
+                    private_key: response.private_key
+                };
+            }
+        } catch (error) {
+            // Endpoint may not exist or keys not configured in env
+            console.debug('HMAC environment keys not available');
+        }
+        return null;
+    }
+    
     // Show visual indicator that keys were preloaded
-    showKeyPreloadedIndicator() {
+    showKeyPreloadedIndicator(source = 'environment') {
         const hmacForm = document.getElementById('hmacForm');
         if (!hmacForm) return;
         
@@ -104,49 +129,12 @@ class AuthManager {
         const existing = hmacForm.querySelector('.preloaded-indicator');
         if (existing) existing.remove();
         
-        // Create indicator
+        // Create indicator based on source
         const indicator = document.createElement('div');
         indicator.className = 'preloaded-indicator';
-        indicator.innerHTML = '<small style="color: #28a745; font-weight: 600;">✓ HMAC keys preloaded from previous session</small>';
+        const sourceText = source === 'environment' ? 'environment variables' : 'configuration';
+        indicator.innerHTML = `<small style="color: #28a745; font-weight: 600;">✓ HMAC keys preloaded from ${sourceText}</small>`;
         hmacForm.insertBefore(indicator, hmacForm.firstChild);
-    }
-    
-    // Save HMAC keys to localStorage
-    saveHMACKeys(publicKey, privateKey) {
-        try {
-            const keys = {
-                public_key: publicKey,
-                private_key: privateKey,
-                saved_at: new Date().toISOString()
-            };
-            localStorage.setItem('fc_hmac_keys', JSON.stringify(keys));
-            console.log('[AUTH] HMAC keys saved to localStorage');
-        } catch (error) {
-            console.error('[AUTH] Error saving HMAC keys:', error);
-        }
-    }
-    
-    // Get HMAC keys from localStorage
-    getStoredHMACKeys() {
-        try {
-            const stored = localStorage.getItem('fc_hmac_keys');
-            if (stored) {
-                return JSON.parse(stored);
-            }
-        } catch (error) {
-            console.error('[AUTH] Error reading HMAC keys:', error);
-        }
-        return null;
-    }
-    
-    // Clear stored HMAC keys from localStorage
-    clearStoredHMACKeys() {
-        try {
-            localStorage.removeItem('fc_hmac_keys');
-            console.log('[AUTH] HMAC keys cleared from localStorage');
-        } catch (error) {
-            console.error('[AUTH] Error clearing HMAC keys:', error);
-        }
     }
     
     // Setup form submission
@@ -183,9 +171,6 @@ class AuthManager {
             public_key: publicKey,
             private_key: privateKey
         });
-        
-        // Save HMAC keys for next time
-        this.saveHMACKeys(publicKey, privateKey);
         
         // Clear form fields
         document.getElementById('publicKey').value = '';
@@ -351,7 +336,7 @@ class AuthManager {
         this.devices = [];
         SessionStorage.clearAll();
         this.showAuthModal();
-        // Note: HMAC keys remain in localStorage for returning users
+        // Session cleared - HMAC keys will be loaded from environment on next auth attempt
     }
     
     // Get current session ID
