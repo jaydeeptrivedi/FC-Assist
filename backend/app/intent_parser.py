@@ -255,6 +255,7 @@ class IntentParser:
     def _extract_dates(self, message: str, data_type: str = 'hourly') -> Tuple[Optional[int], Optional[int], bool]:
         """
         Extract date range from message with smart defaults based on data type.
+        Handles: "last X days", "last X weeks", "last X months", "from DATE to DATE"
         
         Args:
             message: User message
@@ -266,7 +267,41 @@ class IntentParser:
         """
         msg_lower = message.lower()
         
-        # Pattern: "from DATE to DATE" or "DATE to DATE"
+        # Pattern 1: "last X days/weeks/months"
+        last_pattern = r'last\s+(\d+)\s+(days?|weeks?|months?|hours?)'
+        match = re.search(last_pattern, msg_lower)
+        
+        if match:
+            amount = int(match.group(1))
+            unit = match.group(2).lower()
+            
+            now = datetime.now(pytz.timezone(self.user_timezone))
+            end_ts = int(now.timestamp())
+            
+            try:
+                if 'day' in unit:
+                    start_ts = int((now - timedelta(days=amount)).timestamp())
+                    return (start_ts, end_ts, True)
+                elif 'week' in unit:
+                    start_ts = int((now - timedelta(weeks=amount)).timestamp())
+                    return (start_ts, end_ts, True)
+                elif 'month' in unit:
+                    # Go back N months
+                    new_month = now.month - amount
+                    new_year = now.year
+                    while new_month <= 0:
+                        new_month += 12
+                        new_year -= 1
+                    start_date = now.replace(year=new_year, month=new_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+                    start_ts = int(start_date.timestamp())
+                    return (start_ts, end_ts, True)
+                elif 'hour' in unit:
+                    start_ts = int((now - timedelta(hours=amount)).timestamp())
+                    return (start_ts, end_ts, True)
+            except Exception:
+                pass
+        
+        # Pattern 2: "from DATE to DATE" or "DATE to DATE"
         from_to_pattern = r'from\s+([^,]+?)\s+to\s+([^,\.\?]+)'
         match = re.search(from_to_pattern, msg_lower)
         
@@ -289,7 +324,7 @@ class IntentParser:
             end_ts = human_date_to_timestamp(end_str, self.user_timezone)
             
             # Ensure end_ts is end of day if not time-specific
-            if 'hour' not in msg_lower.lower():
+            if 'hour' not in msg_lower:
                 end_ts = end_ts + 86400  # Add 1 day
             
             return (start_ts, end_ts, True)
@@ -311,14 +346,14 @@ class IntentParser:
         end_ts = int(now.timestamp())
         
         if data_type == 'hourly':
-            # Last 24 hours from 12 AM to current hour
+            # Default: Last 24 hours from 12 AM to current hour
             start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
             start_ts = int(start_of_day.timestamp())
         elif data_type == 'daily':
-            # Last 7 days
+            # Default: Last 7 days
             start_ts = int((now - timedelta(days=7)).timestamp())
         elif data_type == 'monthly':
-            # Current year from January to current month (end of current month)
+            # Default: Current year from January to current month (end of current month)
             start_of_year = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
             start_ts = int(start_of_year.timestamp())
             # End of current month
@@ -328,11 +363,11 @@ class IntentParser:
                 end_of_month = now.replace(month=now.month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
             end_ts = int(end_of_month.timestamp())
         elif data_type == 'raw':
-            # For raw data, we'll limit by count (8 entries) in the API call
-            # Still need a date range, so use last 24 hours
+            # For raw data, limit by count (8 entries) in the API call
+            # Default range: last 24 hours (will be limited to 8 entries)
             start_ts = int((now - timedelta(hours=24)).timestamp())
         else:
-            # Default: last 7 days
+            # Fallback: last 7 days
             start_ts = int((now - timedelta(days=7)).timestamp())
         
         return (start_ts, end_ts, False)
